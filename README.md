@@ -1,5 +1,13 @@
 # Enphase
 ```
+CREATE TABLE  "ENPHASE" 
+   (	"SAMPLE_DATE" DATE DEFAULT sysdate, 
+	"DATA" CLOB, 
+	 CONSTRAINT "ENPHASE_JSON_CHK" CHECK (data IS JSON) ENABLE
+   )
+/
+```
+```
 import requests
 import oracledb
 import my_secrets
