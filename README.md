@@ -1,4 +1,5 @@
 # Enphase
+```
 import requests
 import oracledb
 import my_secrets
@@ -30,3 +31,4 @@ try:
         connection.commit()
 except requests.exceptions.HTTPError as err:
     raise SystemExit(err)
+```
