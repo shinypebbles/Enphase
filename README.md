@@ -36,9 +36,6 @@ headers = {
 "Authorization": "Bearer "+my_secrets.token
 }
 
-# https://stackoverflow.com/questions/16511337/correct-way-to-try-except-using-python-requests-module
-# https://stackoverflow.com/questions/56576236/how-to-pass-jwt-token-in-python-for-request-get
-# https://www.oracletutorial.com/python-oracle/inserting-data/
 try:
     r = requests.get(url1, headers=headers, verify=False, timeout=5)
     r.raise_for_status()
