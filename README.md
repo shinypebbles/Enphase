@@ -13,6 +13,13 @@ CREATE TABLE  "ENPHASEPRODUCTION"
 	 CONSTRAINT "ENPHASEPROD_JSON_CHK" CHECK (data IS JSON) ENABLE
    )
 /
+
+CREATE TABLE  "ENPHASEPRODUCTION2" 
+   (	"SAMPLE_DATE" DATE DEFAULT sysdate, 
+	"DATA" CLOB, 
+	 CONSTRAINT "ENPHASEPROD2_JSON_CHK" CHECK (data IS JSON) ENABLE
+   )
+/
 ```
 ```
 import requests
@@ -27,15 +34,21 @@ sql1 = ('insert into enphase(data) '
         'values(:json_data)')
 sql2 = ('insert into enphaseproduction(data) '
         'values(:json_data)')
+sql3 = ('insert into enphaseproduction2(data) '
+        'values(:json_data)')
 
 url1 = "https://envoy/api/v1/production/inverters"
-url2 = "https://envoy/production.json?details=0"
+url2 = "https://envoy/production.json?details=1"
+url3 = "https://envoy/api/v1/production"
 
 headers = {
 "accept" : "application/json",
 "Authorization": "Bearer "+my_secrets.token
 }
 
+# https://stackoverflow.com/questions/16511337/correct-way-to-try-except-using-python-requests-module
+# https://stackoverflow.com/questions/56576236/how-to-pass-jwt-token-in-python-for-request-get
+# https://www.oracletutorial.com/python-oracle/inserting-data/
 try:
     r = requests.get(url1, headers=headers, verify=False, timeout=5)
     r.raise_for_status()
@@ -63,512 +76,269 @@ try:
         connection.commit()
 except requests.exceptions.HTTPError as err:
     raise SystemExit(err)
+
+try:
+    r = requests.get(url3, headers=headers, verify=False, timeout=5)
+    r.raise_for_status()
+    json_data = r.text 
+
+    print(json_data);
+    with connection.cursor() as cursor:
+        # execute the insert statement
+        cursor.execute(sql3, [json_data])
+        # commit work
+        connection.commit()
+except requests.exceptions.HTTPError as err:
+    raise SystemExit(err)
 ```
 ```
-select to_char(P.sample_date, 'DD-MM-YYYY HH24:MI:SS') as "sample date", to_char(epoch2cet_cest(P.data.production.readingTime), 'DD-MM-YYYY HH24:MI:SS') as "readingTime", data
-from ENPHASEPRODUCTION P
-where P.sample_date > to_date('6-11-2023 10', 'DD-MM-YYYY HH24')
+select to_char(P.sample_date, 'DD-MM-YYYY HH24:MI') as "sample date"
+, P.data.production.readingTime as "readingTime"
+, to_char(epoch2cet_cest(P.data.production.readingTime), 'DD-MM-YYYY HH24:MI:SS') as "readingTime"
+, P.data.production.wNow as "wNow"
+, P2.data.wattsNow as "wattsNow"
+from ENPHASEPRODUCTION P, ENPHASEPRODUCTION2 P2
+where P.sample_date > to_date('8-11-2023 0', 'DD-MM-YYYY HH24')
+and to_char(P.sample_date, 'DD-MM-YYYY HH24:MI')=to_char(P2.sample_date, 'DD-MM-YYYY HH24:MI')
 order by P.sample_date
 ```
 ```
-06-11-2023 10:00:35	06-11-2023 09:57:06	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261026,"wNow":123,"whLifetime":395443}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:01:35	06-11-2023 09:57:06	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261026,"wNow":123,"whLifetime":395443}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:02:35	06-11-2023 09:57:06	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261026,"wNow":123,"whLifetime":395443}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:03:35	06-11-2023 09:57:06	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261026,"wNow":123,"whLifetime":395443}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:04:36	06-11-2023 09:57:06	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261026,"wNow":123,"whLifetime":395443}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:05:36	06-11-2023 09:57:06	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261026,"wNow":123,"whLifetime":395443}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:06:35	06-11-2023 09:57:06	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261026,"wNow":123,"whLifetime":395443}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:07:35	06-11-2023 09:57:06	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261026,"wNow":123,"whLifetime":395443}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:08:35	06-11-2023 09:57:06	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261026,"wNow":123,"whLifetime":395443}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:09:36	06-11-2023 09:57:06	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261026,"wNow":123,"whLifetime":395443}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:10:35	06-11-2023 09:57:06	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261026,"wNow":123,"whLifetime":395443}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:11:35	06-11-2023 09:57:06	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261026,"wNow":123,"whLifetime":395443}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:12:36	06-11-2023 10:12:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261958,"wNow":188,"whLifetime":395509}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:13:36	06-11-2023 10:12:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261958,"wNow":188,"whLifetime":395509}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:14:36	06-11-2023 10:12:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261958,"wNow":188,"whLifetime":395509}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:15:36	06-11-2023 10:12:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261958,"wNow":188,"whLifetime":395509}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:16:35	06-11-2023 10:12:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261958,"wNow":188,"whLifetime":395509}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:17:36	06-11-2023 10:12:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261958,"wNow":188,"whLifetime":395509}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:18:35	06-11-2023 10:12:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261958,"wNow":188,"whLifetime":395509}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:19:36	06-11-2023 10:12:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261958,"wNow":188,"whLifetime":395509}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:20:35	06-11-2023 10:12:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261958,"wNow":188,"whLifetime":395509}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:21:35	06-11-2023 10:12:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261958,"wNow":188,"whLifetime":395509}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:22:35	06-11-2023 10:12:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261958,"wNow":188,"whLifetime":395509}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:23:35	06-11-2023 10:12:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261958,"wNow":188,"whLifetime":395509}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:24:35	06-11-2023 10:12:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261958,"wNow":188,"whLifetime":395509}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:25:35	06-11-2023 10:12:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261958,"wNow":188,"whLifetime":395509}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:26:35	06-11-2023 10:12:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261958,"wNow":188,"whLifetime":395509}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:27:35	06-11-2023 10:12:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699261958,"wNow":188,"whLifetime":395509}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:28:35	06-11-2023 10:28:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699262891,"wNow":245,"whLifetime":395540}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:29:36	06-11-2023 10:28:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699262891,"wNow":245,"whLifetime":395540}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:30:35	06-11-2023 10:28:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699262891,"wNow":245,"whLifetime":395540}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:31:35	06-11-2023 10:28:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699262891,"wNow":245,"whLifetime":395540}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:32:35	06-11-2023 10:28:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699262891,"wNow":245,"whLifetime":395540}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:33:35	06-11-2023 10:28:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699262891,"wNow":245,"whLifetime":395540}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:34:36	06-11-2023 10:28:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699262891,"wNow":245,"whLifetime":395540}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:35:35	06-11-2023 10:28:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699262891,"wNow":245,"whLifetime":395540}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:36:35	06-11-2023 10:28:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699262891,"wNow":245,"whLifetime":395540}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:37:35	06-11-2023 10:28:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699262891,"wNow":245,"whLifetime":395540}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:38:35	06-11-2023 10:28:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699262891,"wNow":245,"whLifetime":395540}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:39:35	06-11-2023 10:28:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699262891,"wNow":245,"whLifetime":395573}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:40:35	06-11-2023 10:28:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699262891,"wNow":245,"whLifetime":395573}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:41:35	06-11-2023 10:28:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699262891,"wNow":245,"whLifetime":395573}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:42:35	06-11-2023 10:28:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699262891,"wNow":245,"whLifetime":395573}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:43:35	06-11-2023 10:43:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699263822,"wNow":285,"whLifetime":395646}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:44:35	06-11-2023 10:43:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699263822,"wNow":285,"whLifetime":395646}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:45:35	06-11-2023 10:43:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699263822,"wNow":285,"whLifetime":395646}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:46:35	06-11-2023 10:43:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699263822,"wNow":285,"whLifetime":395646}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:47:35	06-11-2023 10:43:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699263822,"wNow":285,"whLifetime":395646}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:48:35	06-11-2023 10:43:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699263822,"wNow":285,"whLifetime":395646}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:49:35	06-11-2023 10:43:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699263822,"wNow":285,"whLifetime":395646}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:50:35	06-11-2023 10:43:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699263822,"wNow":285,"whLifetime":395646}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:51:35	06-11-2023 10:43:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699263822,"wNow":285,"whLifetime":395646}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:52:35	06-11-2023 10:43:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699263822,"wNow":285,"whLifetime":395646}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:53:35	06-11-2023 10:43:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699263822,"wNow":285,"whLifetime":395646}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:54:35	06-11-2023 10:43:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699263822,"wNow":285,"whLifetime":395646}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:55:35	06-11-2023 10:43:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699263822,"wNow":285,"whLifetime":395646}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:56:35	06-11-2023 10:43:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699263822,"wNow":285,"whLifetime":395646}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:57:35	06-11-2023 10:43:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699263822,"wNow":285,"whLifetime":395646}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:58:35	06-11-2023 10:58:43	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699264723,"wNow":231,"whLifetime":395646}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 10:59:35	06-11-2023 10:59:13	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699264753,"wNow":169,"whLifetime":395690}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:00:35	06-11-2023 10:59:13	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699264753,"wNow":169,"whLifetime":395690}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:01:35	06-11-2023 10:59:13	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699264753,"wNow":169,"whLifetime":395690}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:02:35	06-11-2023 10:59:13	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699264753,"wNow":169,"whLifetime":395690}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:03:35	06-11-2023 10:59:13	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699264753,"wNow":169,"whLifetime":395690}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:04:36	06-11-2023 10:59:13	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699264753,"wNow":169,"whLifetime":395690}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:05:35	06-11-2023 10:59:13	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699264753,"wNow":169,"whLifetime":395690}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:06:35	06-11-2023 10:59:13	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699264753,"wNow":169,"whLifetime":395690}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:07:35	06-11-2023 10:59:13	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699264753,"wNow":169,"whLifetime":395690}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:08:35	06-11-2023 10:59:13	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699264753,"wNow":169,"whLifetime":395690}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:09:35	06-11-2023 10:59:13	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699264753,"wNow":169,"whLifetime":395690}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:10:35	06-11-2023 10:59:13	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699264753,"wNow":169,"whLifetime":395690}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:11:35	06-11-2023 10:59:13	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699264753,"wNow":169,"whLifetime":395690}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:12:35	06-11-2023 10:59:13	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699264753,"wNow":169,"whLifetime":395690}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:13:35	06-11-2023 11:13:45	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699265625,"wNow":181,"whLifetime":395713}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:14:36	06-11-2023 11:14:15	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699265655,"wNow":192,"whLifetime":395737}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:15:35	06-11-2023 11:14:15	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699265655,"wNow":192,"whLifetime":395737}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:16:36	06-11-2023 11:14:15	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699265655,"wNow":192,"whLifetime":395737}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:17:36	06-11-2023 11:14:15	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699265655,"wNow":192,"whLifetime":395737}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:18:36	06-11-2023 11:14:15	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699265655,"wNow":192,"whLifetime":395737}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:19:36	06-11-2023 11:14:15	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699265655,"wNow":192,"whLifetime":395737}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:20:35	06-11-2023 11:14:15	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699265655,"wNow":192,"whLifetime":395737}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:21:36	06-11-2023 11:14:15	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699265655,"wNow":192,"whLifetime":395737}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:22:35	06-11-2023 11:14:15	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699265655,"wNow":192,"whLifetime":395737}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:23:35	06-11-2023 11:14:15	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699265655,"wNow":192,"whLifetime":395737}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:24:36	06-11-2023 11:14:15	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699265655,"wNow":192,"whLifetime":395737}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:25:35	06-11-2023 11:14:15	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699265655,"wNow":192,"whLifetime":395737}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:26:36	06-11-2023 11:14:15	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699265655,"wNow":192,"whLifetime":395737}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:27:36	06-11-2023 11:14:15	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699265655,"wNow":192,"whLifetime":395737}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:28:36	06-11-2023 11:28:47	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699266527,"wNow":162,"whLifetime":395753}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:29:37	06-11-2023 11:29:17	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699266557,"wNow":132,"whLifetime":395771}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:30:35	06-11-2023 11:29:17	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699266557,"wNow":132,"whLifetime":395771}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:31:35	06-11-2023 11:29:17	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699266557,"wNow":132,"whLifetime":395771}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:32:35	06-11-2023 11:29:17	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699266557,"wNow":132,"whLifetime":395771}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:33:36	06-11-2023 11:29:17	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699266557,"wNow":132,"whLifetime":395771}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:34:36	06-11-2023 11:29:17	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699266557,"wNow":132,"whLifetime":395771}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:35:35	06-11-2023 11:29:17	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699266557,"wNow":132,"whLifetime":395771}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:36:35	06-11-2023 11:29:17	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699266557,"wNow":132,"whLifetime":395771}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:37:36	06-11-2023 11:29:17	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699266557,"wNow":132,"whLifetime":395771}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:38:36	06-11-2023 11:29:17	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699266557,"wNow":132,"whLifetime":395771}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:39:36	06-11-2023 11:29:17	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699266557,"wNow":132,"whLifetime":395771}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:40:35	06-11-2023 11:29:17	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699266557,"wNow":132,"whLifetime":395771}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:41:35	06-11-2023 11:29:17	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699266557,"wNow":132,"whLifetime":395771}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:42:36	06-11-2023 11:29:17	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699266557,"wNow":132,"whLifetime":395771}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:43:35	06-11-2023 11:29:17	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699266557,"wNow":132,"whLifetime":395771}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:44:36	06-11-2023 11:44:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699267489,"wNow":209,"whLifetime":395825}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:45:35	06-11-2023 11:44:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699267489,"wNow":209,"whLifetime":395825}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:46:35	06-11-2023 11:44:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699267489,"wNow":209,"whLifetime":395825}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:47:36	06-11-2023 11:44:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699267489,"wNow":209,"whLifetime":395825}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:48:36	06-11-2023 11:44:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699267489,"wNow":209,"whLifetime":395825}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:49:36	06-11-2023 11:44:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699267489,"wNow":209,"whLifetime":395825}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:50:35	06-11-2023 11:44:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699267489,"wNow":209,"whLifetime":395825}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:51:36	06-11-2023 11:44:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699267489,"wNow":209,"whLifetime":395825}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:52:36	06-11-2023 11:44:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699267489,"wNow":209,"whLifetime":395825}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:53:36	06-11-2023 11:44:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699267489,"wNow":209,"whLifetime":395825}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:54:36	06-11-2023 11:44:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699267489,"wNow":209,"whLifetime":395825}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:55:35	06-11-2023 11:44:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699267489,"wNow":209,"whLifetime":395825}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:56:37	06-11-2023 11:44:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699267489,"wNow":209,"whLifetime":395825}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:57:36	06-11-2023 11:44:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699267489,"wNow":209,"whLifetime":395825}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:58:35	06-11-2023 11:44:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699267489,"wNow":209,"whLifetime":395825}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 11:59:36	06-11-2023 11:59:51	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699268391,"wNow":221,"whLifetime":395854}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:00:35	06-11-2023 12:00:21	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699268421,"wNow":229,"whLifetime":395884}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:01:35	06-11-2023 12:00:21	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699268421,"wNow":229,"whLifetime":395884}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:02:35	06-11-2023 12:00:21	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699268421,"wNow":229,"whLifetime":395884}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:03:35	06-11-2023 12:00:21	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699268421,"wNow":229,"whLifetime":395884}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:04:35	06-11-2023 12:00:21	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699268421,"wNow":229,"whLifetime":395884}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:05:35	06-11-2023 12:00:21	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699268421,"wNow":229,"whLifetime":395884}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:06:36	06-11-2023 12:00:21	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699268421,"wNow":229,"whLifetime":395884}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:07:37	06-11-2023 12:00:21	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699268421,"wNow":229,"whLifetime":395884}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:08:35	06-11-2023 12:00:21	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699268421,"wNow":229,"whLifetime":395884}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:09:35	06-11-2023 12:00:21	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699268421,"wNow":229,"whLifetime":395884}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:10:35	06-11-2023 12:00:21	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699268421,"wNow":229,"whLifetime":395884}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:11:35	06-11-2023 12:00:21	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699268421,"wNow":229,"whLifetime":395884}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:12:35	06-11-2023 12:00:21	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699268421,"wNow":229,"whLifetime":395884}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:13:35	06-11-2023 12:00:21	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699268421,"wNow":229,"whLifetime":395884}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:14:37	06-11-2023 12:00:21	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699268421,"wNow":229,"whLifetime":395884}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:15:35	06-11-2023 12:15:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699269352,"wNow":102,"whLifetime":395896}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:16:35	06-11-2023 12:15:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699269352,"wNow":102,"whLifetime":395896}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:17:35	06-11-2023 12:15:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699269352,"wNow":102,"whLifetime":395896}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:18:35	06-11-2023 12:15:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699269352,"wNow":102,"whLifetime":395896}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:19:36	06-11-2023 12:15:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699269352,"wNow":102,"whLifetime":395896}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:20:35	06-11-2023 12:15:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699269352,"wNow":102,"whLifetime":395896}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:21:35	06-11-2023 12:15:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699269352,"wNow":102,"whLifetime":395896}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:22:35	06-11-2023 12:15:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699269352,"wNow":102,"whLifetime":395896}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:23:35	06-11-2023 12:15:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699269352,"wNow":102,"whLifetime":395896}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:24:35	06-11-2023 12:15:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699269352,"wNow":102,"whLifetime":395896}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:25:35	06-11-2023 12:15:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699269352,"wNow":102,"whLifetime":395896}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:26:35	06-11-2023 12:15:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699269352,"wNow":102,"whLifetime":395896}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:27:35	06-11-2023 12:15:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699269352,"wNow":102,"whLifetime":395896}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:28:35	06-11-2023 12:15:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699269352,"wNow":102,"whLifetime":395896}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:29:35	06-11-2023 12:15:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699269352,"wNow":102,"whLifetime":395896}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:30:35	06-11-2023 12:30:54	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699270254,"wNow":146,"whLifetime":395928}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:31:35	06-11-2023 12:30:54	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699270254,"wNow":146,"whLifetime":395928}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:32:35	06-11-2023 12:30:54	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699270254,"wNow":146,"whLifetime":395928}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:33:35	06-11-2023 12:30:54	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699270254,"wNow":146,"whLifetime":395928}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:34:36	06-11-2023 12:30:54	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699270254,"wNow":146,"whLifetime":395928}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:35:35	06-11-2023 12:30:54	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699270254,"wNow":146,"whLifetime":395928}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:36:35	06-11-2023 12:30:54	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699270254,"wNow":146,"whLifetime":395928}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:37:36	06-11-2023 12:30:54	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699270254,"wNow":146,"whLifetime":395928}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:38:35	06-11-2023 12:30:54	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699270254,"wNow":146,"whLifetime":395928}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:39:37	06-11-2023 12:30:54	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699270254,"wNow":146,"whLifetime":395928}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:40:36	06-11-2023 12:30:54	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699270254,"wNow":146,"whLifetime":395928}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:41:35	06-11-2023 12:30:54	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699270254,"wNow":146,"whLifetime":395928}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:42:35	06-11-2023 12:30:54	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699270254,"wNow":146,"whLifetime":395928}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:43:35	06-11-2023 12:30:54	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699270254,"wNow":146,"whLifetime":395928}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:44:36	06-11-2023 12:30:54	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699270254,"wNow":146,"whLifetime":395928}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:45:35	06-11-2023 12:45:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699271157,"wNow":73,"whLifetime":395956}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:46:35	06-11-2023 12:45:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699271157,"wNow":73,"whLifetime":395956}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:47:35	06-11-2023 12:45:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699271157,"wNow":73,"whLifetime":395956}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:48:35	06-11-2023 12:45:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699271157,"wNow":73,"whLifetime":395956}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:49:36	06-11-2023 12:45:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699271157,"wNow":73,"whLifetime":395956}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:50:35	06-11-2023 12:45:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699271157,"wNow":73,"whLifetime":395956}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:51:35	06-11-2023 12:45:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699271157,"wNow":73,"whLifetime":395956}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:52:35	06-11-2023 12:45:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699271157,"wNow":73,"whLifetime":395956}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:53:35	06-11-2023 12:45:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699271157,"wNow":73,"whLifetime":395956}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:54:36	06-11-2023 12:45:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699271157,"wNow":73,"whLifetime":395965}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:55:35	06-11-2023 12:45:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699271157,"wNow":73,"whLifetime":395965}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:56:35	06-11-2023 12:45:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699271157,"wNow":73,"whLifetime":395965}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:57:35	06-11-2023 12:45:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699271157,"wNow":73,"whLifetime":395965}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:58:35	06-11-2023 12:45:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699271157,"wNow":73,"whLifetime":395965}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 12:59:36	06-11-2023 12:45:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699271157,"wNow":73,"whLifetime":395965}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:00:35	06-11-2023 13:00:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272059,"wNow":132,"whLifetime":395981}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:01:35	06-11-2023 13:00:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272059,"wNow":132,"whLifetime":395981}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:02:35	06-11-2023 13:00:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272059,"wNow":132,"whLifetime":395981}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:03:35	06-11-2023 13:00:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272059,"wNow":132,"whLifetime":395981}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:04:36	06-11-2023 13:00:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272059,"wNow":132,"whLifetime":395981}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:05:35	06-11-2023 13:00:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272059,"wNow":132,"whLifetime":395981}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:06:35	06-11-2023 13:00:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272059,"wNow":132,"whLifetime":395981}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:07:35	06-11-2023 13:00:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272059,"wNow":132,"whLifetime":395981}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:08:35	06-11-2023 13:00:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272059,"wNow":132,"whLifetime":395981}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:09:37	06-11-2023 13:00:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272059,"wNow":132,"whLifetime":395981}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:10:35	06-11-2023 13:00:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272059,"wNow":132,"whLifetime":395981}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:11:35	06-11-2023 13:00:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272059,"wNow":132,"whLifetime":395981}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:12:35	06-11-2023 13:00:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272059,"wNow":132,"whLifetime":395981}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:13:35	06-11-2023 13:00:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272059,"wNow":132,"whLifetime":395981}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:14:36	06-11-2023 13:00:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272059,"wNow":132,"whLifetime":395981}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:15:35	06-11-2023 13:16:01	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272961,"wNow":99,"whLifetime":396006}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:16:35	06-11-2023 13:16:31	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272991,"wNow":62,"whLifetime":396006}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:17:35	06-11-2023 13:16:31	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272991,"wNow":62,"whLifetime":396006}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:18:35	06-11-2023 13:16:31	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272991,"wNow":62,"whLifetime":396006}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:19:37	06-11-2023 13:16:31	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272991,"wNow":62,"whLifetime":396006}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:20:35	06-11-2023 13:16:31	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272991,"wNow":62,"whLifetime":396006}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:21:35	06-11-2023 13:16:31	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272991,"wNow":62,"whLifetime":396006}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:22:35	06-11-2023 13:16:31	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272991,"wNow":62,"whLifetime":396006}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:23:35	06-11-2023 13:16:31	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272991,"wNow":62,"whLifetime":396006}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:24:36	06-11-2023 13:16:31	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272991,"wNow":62,"whLifetime":396006}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:25:35	06-11-2023 13:16:31	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272991,"wNow":62,"whLifetime":396006}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:26:35	06-11-2023 13:16:31	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272991,"wNow":62,"whLifetime":396006}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:27:35	06-11-2023 13:16:31	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272991,"wNow":62,"whLifetime":396006}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:28:35	06-11-2023 13:16:31	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272991,"wNow":62,"whLifetime":396006}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:29:36	06-11-2023 13:16:31	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272991,"wNow":62,"whLifetime":396006}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:30:35	06-11-2023 13:16:31	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699272991,"wNow":62,"whLifetime":396006}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:31:35	06-11-2023 13:32:03	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699273923,"wNow":58,"whLifetime":396022}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:32:36	06-11-2023 13:32:03	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699273923,"wNow":58,"whLifetime":396022}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:33:35	06-11-2023 13:32:03	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699273923,"wNow":58,"whLifetime":396022}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:34:36	06-11-2023 13:32:03	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699273923,"wNow":58,"whLifetime":396022}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:35:35	06-11-2023 13:32:03	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699273923,"wNow":58,"whLifetime":396022}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:36:35	06-11-2023 13:32:03	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699273923,"wNow":58,"whLifetime":396022}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:37:36	06-11-2023 13:32:03	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699273923,"wNow":58,"whLifetime":396022}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:38:35	06-11-2023 13:32:03	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699273923,"wNow":58,"whLifetime":396022}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:39:36	06-11-2023 13:32:03	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699273923,"wNow":58,"whLifetime":396029}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:40:35	06-11-2023 13:32:03	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699273923,"wNow":58,"whLifetime":396029}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:41:35	06-11-2023 13:32:03	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699273923,"wNow":58,"whLifetime":396029}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:42:35	06-11-2023 13:32:03	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699273923,"wNow":58,"whLifetime":396029}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:43:35	06-11-2023 13:32:03	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699273923,"wNow":58,"whLifetime":396029}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:44:36	06-11-2023 13:32:03	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699273923,"wNow":58,"whLifetime":396029}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:45:35	06-11-2023 13:32:03	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699273923,"wNow":58,"whLifetime":396029}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:46:35	06-11-2023 13:46:35	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699274795,"wNow":76,"whLifetime":396041}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:47:35	06-11-2023 13:47:35	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699274855,"wNow":97,"whLifetime":396055}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:48:35	06-11-2023 13:47:35	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699274855,"wNow":97,"whLifetime":396055}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:49:37	06-11-2023 13:47:35	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699274855,"wNow":97,"whLifetime":396055}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:50:36	06-11-2023 13:47:35	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699274855,"wNow":97,"whLifetime":396055}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:51:35	06-11-2023 13:47:35	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699274855,"wNow":97,"whLifetime":396055}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:52:35	06-11-2023 13:47:35	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699274855,"wNow":97,"whLifetime":396055}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:53:35	06-11-2023 13:47:35	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699274855,"wNow":97,"whLifetime":396055}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:54:36	06-11-2023 13:47:35	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699274855,"wNow":97,"whLifetime":396055}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:55:35	06-11-2023 13:47:35	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699274855,"wNow":97,"whLifetime":396055}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:56:36	06-11-2023 13:47:35	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699274855,"wNow":97,"whLifetime":396055}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:57:37	06-11-2023 13:47:35	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699274855,"wNow":97,"whLifetime":396055}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:58:35	06-11-2023 13:47:35	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699274855,"wNow":97,"whLifetime":396055}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 13:59:36	06-11-2023 13:47:35	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699274855,"wNow":97,"whLifetime":396055}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:00:35	06-11-2023 13:47:35	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699274855,"wNow":97,"whLifetime":396055}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:01:35	06-11-2023 14:02:07	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699275727,"wNow":91,"whLifetime":396065}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:02:35	06-11-2023 14:03:07	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699275787,"wNow":79,"whLifetime":396065}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:03:35	06-11-2023 14:03:07	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699275787,"wNow":79,"whLifetime":396065}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:04:36	06-11-2023 14:03:07	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699275787,"wNow":79,"whLifetime":396065}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:05:35	06-11-2023 14:03:07	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699275787,"wNow":79,"whLifetime":396065}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:06:35	06-11-2023 14:03:07	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699275787,"wNow":79,"whLifetime":396065}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:07:35	06-11-2023 14:03:07	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699275787,"wNow":79,"whLifetime":396065}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:08:35	06-11-2023 14:03:07	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699275787,"wNow":79,"whLifetime":396065}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:09:36	06-11-2023 14:03:07	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699275787,"wNow":79,"whLifetime":396065}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:10:35	06-11-2023 14:03:07	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699275787,"wNow":79,"whLifetime":396065}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:11:35	06-11-2023 14:03:07	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699275787,"wNow":79,"whLifetime":396065}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:12:35	06-11-2023 14:03:07	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699275787,"wNow":79,"whLifetime":396065}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:13:35	06-11-2023 14:03:07	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699275787,"wNow":79,"whLifetime":396065}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:14:35	06-11-2023 14:03:07	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699275787,"wNow":79,"whLifetime":396065}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:15:35	06-11-2023 14:03:07	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699275787,"wNow":79,"whLifetime":396065}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:16:35	06-11-2023 14:03:07	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699275787,"wNow":79,"whLifetime":396065}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:17:36	06-11-2023 14:17:38	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699276658,"wNow":59,"whLifetime":396075}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:18:35	06-11-2023 14:18:39	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699276719,"wNow":39,"whLifetime":396080}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:19:36	06-11-2023 14:18:39	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699276719,"wNow":39,"whLifetime":396080}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:20:35	06-11-2023 14:18:39	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699276719,"wNow":39,"whLifetime":396080}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:21:35	06-11-2023 14:18:39	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699276719,"wNow":39,"whLifetime":396080}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:22:36	06-11-2023 14:18:39	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699276719,"wNow":39,"whLifetime":396080}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:23:36	06-11-2023 14:18:39	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699276719,"wNow":39,"whLifetime":396080}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:24:36	06-11-2023 14:18:39	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699276719,"wNow":39,"whLifetime":396080}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:25:35	06-11-2023 14:18:39	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699276719,"wNow":39,"whLifetime":396085}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:26:35	06-11-2023 14:18:39	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699276719,"wNow":39,"whLifetime":396085}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:27:36	06-11-2023 14:18:39	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699276719,"wNow":39,"whLifetime":396085}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:28:36	06-11-2023 14:18:39	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699276719,"wNow":39,"whLifetime":396085}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:29:38	06-11-2023 14:18:39	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699276719,"wNow":39,"whLifetime":396085}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:30:36	06-11-2023 14:18:39	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699276719,"wNow":39,"whLifetime":396085}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:31:35	06-11-2023 14:18:39	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699276719,"wNow":39,"whLifetime":396085}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:32:36	06-11-2023 14:32:40	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699277560,"wNow":31,"whLifetime":396085}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:33:36	06-11-2023 14:32:40	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699277560,"wNow":31,"whLifetime":396085}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:34:36	06-11-2023 14:34:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699277651,"wNow":24,"whLifetime":396088}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:35:36	06-11-2023 14:34:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699277651,"wNow":24,"whLifetime":396088}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:36:36	06-11-2023 14:34:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699277651,"wNow":24,"whLifetime":396088}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:37:35	06-11-2023 14:34:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699277651,"wNow":24,"whLifetime":396088}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:38:36	06-11-2023 14:34:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699277651,"wNow":24,"whLifetime":396088}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:39:36	06-11-2023 14:34:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699277651,"wNow":24,"whLifetime":396088}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:40:35	06-11-2023 14:34:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699277651,"wNow":24,"whLifetime":396088}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:41:35	06-11-2023 14:34:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699277651,"wNow":24,"whLifetime":396088}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:42:35	06-11-2023 14:34:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699277651,"wNow":24,"whLifetime":396088}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:43:35	06-11-2023 14:34:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699277651,"wNow":24,"whLifetime":396088}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:44:36	06-11-2023 14:34:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699277651,"wNow":24,"whLifetime":396088}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:45:35	06-11-2023 14:34:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699277651,"wNow":24,"whLifetime":396088}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:46:35	06-11-2023 14:34:11	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699277651,"wNow":24,"whLifetime":396088}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:47:35	06-11-2023 14:47:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699278462,"wNow":34,"whLifetime":396096}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:48:35	06-11-2023 14:47:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699278462,"wNow":34,"whLifetime":396096}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:49:36	06-11-2023 14:49:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699278582,"wNow":47,"whLifetime":396102}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:50:35	06-11-2023 14:49:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699278582,"wNow":47,"whLifetime":396102}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:51:35	06-11-2023 14:49:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699278582,"wNow":47,"whLifetime":396102}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:52:35	06-11-2023 14:49:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699278582,"wNow":47,"whLifetime":396102}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:53:35	06-11-2023 14:49:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699278582,"wNow":47,"whLifetime":396102}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:54:36	06-11-2023 14:49:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699278582,"wNow":47,"whLifetime":396102}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:55:35	06-11-2023 14:49:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699278582,"wNow":47,"whLifetime":396102}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:56:35	06-11-2023 14:49:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699278582,"wNow":47,"whLifetime":396102}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:57:35	06-11-2023 14:49:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699278582,"wNow":47,"whLifetime":396102}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:58:35	06-11-2023 14:49:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699278582,"wNow":47,"whLifetime":396102}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 14:59:36	06-11-2023 14:49:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699278582,"wNow":47,"whLifetime":396102}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:00:36	06-11-2023 14:49:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699278582,"wNow":47,"whLifetime":396102}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:01:35	06-11-2023 14:49:42	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699278582,"wNow":47,"whLifetime":396102}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:02:35	06-11-2023 15:02:44	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699279364,"wNow":47,"whLifetime":396102}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:03:35	06-11-2023 15:02:44	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699279364,"wNow":47,"whLifetime":396102}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:04:36	06-11-2023 15:04:44	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699279484,"wNow":43,"whLifetime":396108}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:05:35	06-11-2023 15:04:44	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699279484,"wNow":43,"whLifetime":396108}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:06:36	06-11-2023 15:04:44	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699279484,"wNow":43,"whLifetime":396108}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:07:35	06-11-2023 15:04:44	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699279484,"wNow":43,"whLifetime":396108}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:08:35	06-11-2023 15:04:44	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699279484,"wNow":43,"whLifetime":396108}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:09:35	06-11-2023 15:04:44	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699279484,"wNow":43,"whLifetime":396108}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:10:35	06-11-2023 15:04:44	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699279484,"wNow":43,"whLifetime":396113}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:11:35	06-11-2023 15:04:44	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699279484,"wNow":43,"whLifetime":396113}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:12:35	06-11-2023 15:04:44	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699279484,"wNow":43,"whLifetime":396113}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:13:35	06-11-2023 15:04:44	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699279484,"wNow":43,"whLifetime":396113}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:14:36	06-11-2023 15:04:44	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699279484,"wNow":43,"whLifetime":396113}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:15:35	06-11-2023 15:04:44	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699279484,"wNow":43,"whLifetime":396113}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:16:35	06-11-2023 15:04:44	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699279484,"wNow":43,"whLifetime":396113}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:17:35	06-11-2023 15:17:46	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699280266,"wNow":54,"whLifetime":396121}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:18:35	06-11-2023 15:17:46	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699280266,"wNow":54,"whLifetime":396121}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:19:36	06-11-2023 15:19:46	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699280386,"wNow":63,"whLifetime":396121}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:20:35	06-11-2023 15:19:46	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699280386,"wNow":63,"whLifetime":396121}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:21:35	06-11-2023 15:19:46	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699280386,"wNow":63,"whLifetime":396121}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:22:35	06-11-2023 15:19:46	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699280386,"wNow":63,"whLifetime":396121}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:23:35	06-11-2023 15:19:46	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699280386,"wNow":63,"whLifetime":396121}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:24:36	06-11-2023 15:19:46	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699280386,"wNow":63,"whLifetime":396121}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:25:36	06-11-2023 15:19:46	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699280386,"wNow":63,"whLifetime":396121}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:26:35	06-11-2023 15:19:46	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699280386,"wNow":63,"whLifetime":396121}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:27:35	06-11-2023 15:19:46	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699280386,"wNow":63,"whLifetime":396121}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:28:35	06-11-2023 15:19:46	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699280386,"wNow":63,"whLifetime":396121}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:29:37	06-11-2023 15:19:46	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699280386,"wNow":63,"whLifetime":396121}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:30:35	06-11-2023 15:19:46	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699280386,"wNow":63,"whLifetime":396121}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:31:36	06-11-2023 15:19:46	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699280386,"wNow":63,"whLifetime":396121}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:32:35	06-11-2023 15:19:46	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699280386,"wNow":63,"whLifetime":396121}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:33:35	06-11-2023 15:33:18	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699281198,"wNow":51,"whLifetime":396135}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:34:37	06-11-2023 15:34:48	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699281288,"wNow":39,"whLifetime":396140}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:35:35	06-11-2023 15:34:48	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699281288,"wNow":39,"whLifetime":396140}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:36:35	06-11-2023 15:34:48	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699281288,"wNow":39,"whLifetime":396140}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:37:35	06-11-2023 15:34:48	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699281288,"wNow":39,"whLifetime":396140}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:38:35	06-11-2023 15:34:48	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699281288,"wNow":39,"whLifetime":396140}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:39:37	06-11-2023 15:34:48	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699281288,"wNow":39,"whLifetime":396140}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:40:35	06-11-2023 15:34:48	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699281288,"wNow":39,"whLifetime":396140}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:41:35	06-11-2023 15:34:48	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699281288,"wNow":39,"whLifetime":396140}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:42:36	06-11-2023 15:34:48	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699281288,"wNow":39,"whLifetime":396140}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:43:35	06-11-2023 15:34:48	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699281288,"wNow":39,"whLifetime":396140}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:44:37	06-11-2023 15:34:48	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699281288,"wNow":39,"whLifetime":396140}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:45:35	06-11-2023 15:34:48	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699281288,"wNow":39,"whLifetime":396140}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:46:35	06-11-2023 15:34:48	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699281288,"wNow":39,"whLifetime":396140}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:47:35	06-11-2023 15:34:48	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699281288,"wNow":39,"whLifetime":396140}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:48:35	06-11-2023 15:48:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699282129,"wNow":26,"whLifetime":396140}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:49:36	06-11-2023 15:48:49	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699282129,"wNow":26,"whLifetime":396140}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:50:35	06-11-2023 15:50:20	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699282220,"wNow":15,"whLifetime":396142}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:51:35	06-11-2023 15:50:20	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699282220,"wNow":15,"whLifetime":396142}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:52:36	06-11-2023 15:50:20	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699282220,"wNow":15,"whLifetime":396142}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:53:35	06-11-2023 15:50:20	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699282220,"wNow":15,"whLifetime":396142}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:54:37	06-11-2023 15:50:20	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699282220,"wNow":15,"whLifetime":396142}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:55:35	06-11-2023 15:50:20	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699282220,"wNow":15,"whLifetime":396143}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:56:36	06-11-2023 15:50:20	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699282220,"wNow":15,"whLifetime":396143}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:57:35	06-11-2023 15:50:20	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699282220,"wNow":15,"whLifetime":396143}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:58:35	06-11-2023 15:50:20	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699282220,"wNow":15,"whLifetime":396143}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 15:59:35	06-11-2023 15:50:20	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699282220,"wNow":15,"whLifetime":396143}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:00:35	06-11-2023 15:50:20	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699282220,"wNow":15,"whLifetime":396143}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:01:35	06-11-2023 15:50:20	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699282220,"wNow":15,"whLifetime":396143}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:02:35	06-11-2023 15:50:20	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699282220,"wNow":15,"whLifetime":396143}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:03:35	06-11-2023 16:03:51	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283031,"wNow":14,"whLifetime":396143}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:04:36	06-11-2023 16:03:51	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283031,"wNow":14,"whLifetime":396143}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:05:35	06-11-2023 16:05:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283152,"wNow":13,"whLifetime":396144}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:06:36	06-11-2023 16:05:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283152,"wNow":13,"whLifetime":396144}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:07:35	06-11-2023 16:05:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283152,"wNow":13,"whLifetime":396144}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:08:35	06-11-2023 16:05:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283152,"wNow":13,"whLifetime":396144}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:09:36	06-11-2023 16:05:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283152,"wNow":13,"whLifetime":396144}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:10:35	06-11-2023 16:05:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283152,"wNow":13,"whLifetime":396144}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:11:35	06-11-2023 16:05:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283152,"wNow":13,"whLifetime":396144}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:12:35	06-11-2023 16:05:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283152,"wNow":13,"whLifetime":396144}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:13:35	06-11-2023 16:05:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283152,"wNow":13,"whLifetime":396144}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:14:36	06-11-2023 16:05:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283152,"wNow":13,"whLifetime":396144}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:15:35	06-11-2023 16:05:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283152,"wNow":13,"whLifetime":396144}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:16:35	06-11-2023 16:05:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283152,"wNow":13,"whLifetime":396144}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:17:35	06-11-2023 16:05:52	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283152,"wNow":13,"whLifetime":396144}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:18:35	06-11-2023 16:18:53	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283933,"wNow":12,"whLifetime":396146}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:19:35	06-11-2023 16:18:53	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283933,"wNow":12,"whLifetime":396146}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:20:35	06-11-2023 16:18:53	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699283933,"wNow":12,"whLifetime":396146}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:21:35	06-11-2023 16:21:24	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699284084,"wNow":11,"whLifetime":396150}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:22:35	06-11-2023 16:21:24	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699284084,"wNow":11,"whLifetime":396150}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:23:35	06-11-2023 16:21:24	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699284084,"wNow":11,"whLifetime":396150}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:24:35	06-11-2023 16:21:24	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699284084,"wNow":11,"whLifetime":396150}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:25:35	06-11-2023 16:21:24	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699284084,"wNow":11,"whLifetime":396150}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:26:35	06-11-2023 16:21:24	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699284084,"wNow":11,"whLifetime":396150}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:27:35	06-11-2023 16:21:24	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699284084,"wNow":11,"whLifetime":396150}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:28:35	06-11-2023 16:21:24	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699284084,"wNow":11,"whLifetime":396150}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:29:36	06-11-2023 16:21:24	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699284084,"wNow":11,"whLifetime":396150}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:30:35	06-11-2023 16:21:24	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699284084,"wNow":11,"whLifetime":396150}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:31:35	06-11-2023 16:21:24	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699284084,"wNow":11,"whLifetime":396150}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:32:35	06-11-2023 16:21:24	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699284084,"wNow":11,"whLifetime":396150}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:33:35	06-11-2023 16:33:55	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699284835,"wNow":11,"whLifetime":396151}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:34:35	06-11-2023 16:33:55	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699284835,"wNow":11,"whLifetime":396151}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:35:35	06-11-2023 16:33:55	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699284835,"wNow":11,"whLifetime":396151}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:36:35	06-11-2023 16:36:55	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285015,"wNow":10,"whLifetime":396151}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:37:35	06-11-2023 16:36:55	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285015,"wNow":10,"whLifetime":396151}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:38:35	06-11-2023 16:36:55	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285015,"wNow":10,"whLifetime":396151}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:39:36	06-11-2023 16:36:55	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285015,"wNow":10,"whLifetime":396151}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:40:35	06-11-2023 16:36:55	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285015,"wNow":10,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:41:35	06-11-2023 16:36:55	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285015,"wNow":10,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:42:35	06-11-2023 16:36:55	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285015,"wNow":10,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:43:35	06-11-2023 16:36:55	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285015,"wNow":10,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:44:35	06-11-2023 16:36:55	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285015,"wNow":10,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:45:35	06-11-2023 16:36:55	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285015,"wNow":10,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:46:35	06-11-2023 16:36:55	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285015,"wNow":10,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:47:35	06-11-2023 16:36:55	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285015,"wNow":10,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:48:35	06-11-2023 16:48:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285737,"wNow":6,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:49:36	06-11-2023 16:48:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285737,"wNow":6,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:50:35	06-11-2023 16:48:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285737,"wNow":6,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:51:35	06-11-2023 16:51:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285917,"wNow":2,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:52:35	06-11-2023 16:51:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285917,"wNow":2,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:53:35	06-11-2023 16:51:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285917,"wNow":2,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:54:36	06-11-2023 16:51:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285917,"wNow":2,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:55:35	06-11-2023 16:51:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285917,"wNow":2,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:56:35	06-11-2023 16:51:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285917,"wNow":2,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:57:35	06-11-2023 16:51:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285917,"wNow":2,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:58:35	06-11-2023 16:51:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285917,"wNow":2,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 16:59:36	06-11-2023 16:51:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285917,"wNow":2,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:00:35	06-11-2023 16:51:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285917,"wNow":2,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:01:35	06-11-2023 16:51:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285917,"wNow":2,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:02:35	06-11-2023 16:51:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285917,"wNow":2,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:03:35	06-11-2023 16:51:57	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699285917,"wNow":2,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:04:36	06-11-2023 17:04:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286699,"wNow":1,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:05:35	06-11-2023 17:04:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286699,"wNow":1,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:06:36	06-11-2023 17:06:59	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286819,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:07:36	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:08:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:09:36	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:10:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:11:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:12:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:13:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:14:37	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:15:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:16:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:17:36	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:18:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:19:36	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:20:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:21:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:22:36	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:23:36	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:24:37	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:25:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:26:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:27:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:28:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:29:36	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:30:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:31:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:32:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:33:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:34:36	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:35:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:36:35	06-11-2023 17:07:09	{"production":[{"type":"inverters","activeCount":2,"readingTime":1699286829,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:37:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:38:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:39:36	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:40:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:41:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:42:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:43:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:44:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:45:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:46:36	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:47:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:48:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:49:36	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:50:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:51:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:52:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:53:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:54:36	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:55:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:56:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:57:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:58:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 17:59:36	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:00:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:01:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:02:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:03:36	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:04:37	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:05:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:06:36	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:07:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:08:36	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:09:36	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:10:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:11:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:12:36	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:13:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:14:36	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:15:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:16:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:17:35	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:18:36	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
-06-11-2023 18:19:36	01-01-1970 01:00:00	{"production":[{"type":"inverters","activeCount":2,"readingTime":0,"wNow":0,"whLifetime":396152}],"storage":[{"type":"acb","activeCount":0,"readingTime":0,"wNow":0,"whNow":0,"state":"idle"}]}
+08-11-2023 09:55	1699433733	08-11-2023 09:55:33	110	109
+08-11-2023 09:56	1699433733	08-11-2023 09:55:33	110	109
+08-11-2023 09:57	1699433733	08-11-2023 09:55:33	110	109
+08-11-2023 09:58	1699433733	08-11-2023 09:55:33	110	109
+08-11-2023 10:00	1699433733	08-11-2023 09:55:33	110	109
+08-11-2023 10:01	1699433733	08-11-2023 09:55:33	110	109
+08-11-2023 10:02	1699433733	08-11-2023 09:55:33	110	109
+08-11-2023 10:03	1699433733	08-11-2023 09:55:33	110	109
+08-11-2023 10:04	1699433733	08-11-2023 09:55:33	110	109
+08-11-2023 10:05	1699433733	08-11-2023 09:55:33	110	109
+08-11-2023 10:06	1699433733	08-11-2023 09:55:33	110	109
+08-11-2023 10:07	1699433733	08-11-2023 09:55:33	110	109
+08-11-2023 10:08	1699433733	08-11-2023 09:55:33	110	109
+08-11-2023 10:09	1699434575	08-11-2023 10:09:35	164	164
+08-11-2023 10:10	1699434635	08-11-2023 10:10:35	188	188
+08-11-2023 10:11	1699434635	08-11-2023 10:10:35	188	188
+08-11-2023 10:12	1699434635	08-11-2023 10:10:35	188	188
+08-11-2023 10:13	1699434635	08-11-2023 10:10:35	188	188
+08-11-2023 10:14	1699434635	08-11-2023 10:10:35	188	188
+08-11-2023 10:15	1699434635	08-11-2023 10:10:35	188	188
+08-11-2023 10:16	1699434635	08-11-2023 10:10:35	188	188
+08-11-2023 10:17	1699434635	08-11-2023 10:10:35	188	188
+08-11-2023 10:18	1699434635	08-11-2023 10:10:35	188	188
+08-11-2023 10:19	1699434635	08-11-2023 10:10:35	188	188
+08-11-2023 10:20	1699434635	08-11-2023 10:10:35	188	188
+08-11-2023 10:21	1699434635	08-11-2023 10:10:35	188	188
+08-11-2023 10:22	1699434635	08-11-2023 10:10:35	188	188
+08-11-2023 10:24	1699435477	08-11-2023 10:24:37	190	190
+08-11-2023 10:27	1699435537	08-11-2023 10:25:37	204	190
+08-11-2023 10:28	1699435537	08-11-2023 10:25:37	204	190
+08-11-2023 10:31	1699435537	08-11-2023 10:25:37	204	190
+08-11-2023 10:33	1699435537	08-11-2023 10:25:37	204	190
+08-11-2023 10:38	1699435537	08-11-2023 10:25:37	204	205
+08-11-2023 10:40	1699436439	08-11-2023 10:40:39	181	194
+08-11-2023 10:41	1699436439	08-11-2023 10:40:39	181	194
+08-11-2023 10:43	1699436439	08-11-2023 10:40:39	181	194
+08-11-2023 10:44	1699436439	08-11-2023 10:40:39	181	194
+08-11-2023 10:49	1699436439	08-11-2023 10:40:39	181	194
+08-11-2023 10:51	1699436439	08-11-2023 10:40:39	181	194
+08-11-2023 10:52	1699436439	08-11-2023 10:40:39	181	194
+08-11-2023 10:53	1699436439	08-11-2023 10:40:39	181	194
+08-11-2023 10:54	1699437281	08-11-2023 10:54:41	160	161
+08-11-2023 10:58	1699437341	08-11-2023 10:55:41	146	161
+08-11-2023 11:01	1699437341	08-11-2023 10:55:41	146	161
+08-11-2023 11:02	1699437341	08-11-2023 10:55:41	146	161
+08-11-2023 11:04	1699437341	08-11-2023 10:55:41	146	161
+08-11-2023 11:06	1699437341	08-11-2023 10:55:41	146	161
+08-11-2023 11:07	1699437341	08-11-2023 10:55:41	146	161
+08-11-2023 11:08	1699437341	08-11-2023 10:55:41	146	161
+08-11-2023 11:12	1699438244	08-11-2023 11:10:44	253	199
+08-11-2023 11:13	1699438244	08-11-2023 11:10:44	253	199
+08-11-2023 11:17	1699438244	08-11-2023 11:10:44	253	199
+08-11-2023 11:19	1699438244	08-11-2023 11:10:44	253	199
+08-11-2023 11:21	1699438244	08-11-2023 11:10:44	253	199
+08-11-2023 11:22	1699438244	08-11-2023 11:10:44	253	254
+08-11-2023 11:23	1699438244	08-11-2023 11:10:44	253	254
+08-11-2023 11:24	1699438244	08-11-2023 11:10:44	253	254
+08-11-2023 11:26	1699439176	08-11-2023 11:26:16	231	231
+08-11-2023 11:29	1699439176	08-11-2023 11:26:16	231	231
+08-11-2023 11:34	1699439176	08-11-2023 11:26:16	231	231
+08-11-2023 11:36	1699439176	08-11-2023 11:26:16	231	231
+08-11-2023 11:37	1699439176	08-11-2023 11:26:16	231	231
+08-11-2023 11:38	1699439176	08-11-2023 11:26:16	231	231
+08-11-2023 11:41	1699440108	08-11-2023 11:41:48	180	180
+08-11-2023 11:43	1699440108	08-11-2023 11:41:48	180	180
+08-11-2023 11:45	1699440108	08-11-2023 11:41:48	180	180
+08-11-2023 11:46	1699440108	08-11-2023 11:41:48	180	180
+08-11-2023 11:47	1699440108	08-11-2023 11:41:48	180	180
+08-11-2023 11:48	1699440108	08-11-2023 11:41:48	180	180
+08-11-2023 11:49	1699440108	08-11-2023 11:41:48	180	180
+08-11-2023 11:51	1699440108	08-11-2023 11:41:48	180	180
+08-11-2023 11:52	1699440108	08-11-2023 11:41:48	180	180
+08-11-2023 11:53	1699440108	08-11-2023 11:41:48	180	180
+08-11-2023 11:54	1699440108	08-11-2023 11:41:48	180	180
+08-11-2023 11:55	1699440108	08-11-2023 11:41:48	180	180
+08-11-2023 11:56	1699440979	08-11-2023 11:56:19	149	180
+08-11-2023 11:57	1699441040	08-11-2023 11:57:20	113	149
+08-11-2023 11:58	1699441040	08-11-2023 11:57:20	113	149
+08-11-2023 11:59	1699441040	08-11-2023 11:57:20	113	149
+08-11-2023 12:00	1699441040	08-11-2023 11:57:20	113	149
+08-11-2023 12:01	1699441040	08-11-2023 11:57:20	113	149
+08-11-2023 12:03	1699441040	08-11-2023 11:57:20	113	149
+08-11-2023 12:06	1699441040	08-11-2023 11:57:20	113	149
+08-11-2023 12:07	1699441040	08-11-2023 11:57:20	113	113
+08-11-2023 12:09	1699441040	08-11-2023 11:57:20	113	113
+08-11-2023 12:11	1699441881	08-11-2023 12:11:21	116	113
+08-11-2023 12:12	1699441971	08-11-2023 12:12:51	120	116
+08-11-2023 12:13	1699441971	08-11-2023 12:12:51	120	116
+08-11-2023 12:17	1699441971	08-11-2023 12:12:51	120	116
+08-11-2023 12:19	1699441971	08-11-2023 12:12:51	120	116
+08-11-2023 12:21	1699441971	08-11-2023 12:12:51	120	116
+08-11-2023 12:23	1699441971	08-11-2023 12:12:51	120	116
+08-11-2023 12:24	1699441971	08-11-2023 12:12:51	120	116
+08-11-2023 12:27	1699442873	08-11-2023 12:27:53	158	158
+08-11-2023 12:28	1699442873	08-11-2023 12:27:53	158	158
+08-11-2023 12:34	1699442873	08-11-2023 12:27:53	158	158
+08-11-2023 12:38	1699442873	08-11-2023 12:27:53	158	158
+08-11-2023 12:40	1699442873	08-11-2023 12:27:53	158	158
+08-11-2023 12:48	1699443775	08-11-2023 12:42:55	262	212
+08-11-2023 12:49	1699443775	08-11-2023 12:42:55	262	212
+08-11-2023 12:56	1699444617	08-11-2023 12:56:57	216	261
+08-11-2023 12:57	1699444677	08-11-2023 12:57:57	165	166
+08-11-2023 12:58	1699444677	08-11-2023 12:57:57	165	166
+08-11-2023 12:59	1699444677	08-11-2023 12:57:57	165	166
+08-11-2023 13:01	1699444677	08-11-2023 12:57:57	165	166
+08-11-2023 13:06	1699444677	08-11-2023 12:57:57	165	166
+08-11-2023 13:08	1699444677	08-11-2023 12:57:57	165	166
+08-11-2023 13:09	1699444677	08-11-2023 12:57:57	165	166
+08-11-2023 13:10	1699444677	08-11-2023 12:57:57	165	166
+08-11-2023 13:11	1699444677	08-11-2023 12:57:57	165	166
+08-11-2023 13:13	1699445579	08-11-2023 13:12:59	162	161
+08-11-2023 13:14	1699445579	08-11-2023 13:12:59	162	161
+08-11-2023 13:15	1699445579	08-11-2023 13:12:59	162	161
+08-11-2023 13:16	1699445579	08-11-2023 13:12:59	162	161
+08-11-2023 13:17	1699445579	08-11-2023 13:12:59	162	161
+08-11-2023 13:18	1699445579	08-11-2023 13:12:59	162	161
+08-11-2023 13:19	1699445579	08-11-2023 13:12:59	162	161
+08-11-2023 13:20	1699445579	08-11-2023 13:12:59	162	161
+08-11-2023 13:21	1699445579	08-11-2023 13:12:59	162	161
+08-11-2023 13:22	1699445579	08-11-2023 13:12:59	162	161
+08-11-2023 13:23	1699445579	08-11-2023 13:12:59	162	161
+08-11-2023 13:24	1699445579	08-11-2023 13:12:59	162	161
+08-11-2023 13:26	1699445579	08-11-2023 13:12:59	162	161
+08-11-2023 13:27	1699446482	08-11-2023 13:28:02	200	181
+08-11-2023 13:28	1699446482	08-11-2023 13:28:02	200	181
+08-11-2023 13:29	1699446482	08-11-2023 13:28:02	200	181
+08-11-2023 13:30	1699446482	08-11-2023 13:28:02	200	181
+08-11-2023 13:31	1699446482	08-11-2023 13:28:02	200	181
+08-11-2023 13:33	1699446482	08-11-2023 13:28:02	200	181
+08-11-2023 13:35	1699446482	08-11-2023 13:28:02	200	181
+08-11-2023 13:36	1699446482	08-11-2023 13:28:02	200	181
+08-11-2023 13:37	1699446482	08-11-2023 13:28:02	200	200
+08-11-2023 13:38	1699446482	08-11-2023 13:28:02	200	200
+08-11-2023 13:39	1699446482	08-11-2023 13:28:02	200	200
+08-11-2023 13:43	1699447414	08-11-2023 13:43:34	112	158
+08-11-2023 13:47	1699447414	08-11-2023 13:43:34	112	158
+08-11-2023 13:49	1699447414	08-11-2023 13:43:34	112	158
+08-11-2023 13:50	1699447414	08-11-2023 13:43:34	112	158
+08-11-2023 13:52	1699447414	08-11-2023 13:43:34	112	158
+08-11-2023 13:53	1699447414	08-11-2023 13:43:34	112	158
+08-11-2023 13:55	1699447414	08-11-2023 13:43:34	112	158
+08-11-2023 13:56	1699447414	08-11-2023 13:43:34	112	158
+08-11-2023 13:57	1699447414	08-11-2023 13:43:34	112	158
+08-11-2023 14:09	1699448345	08-11-2023 13:59:05	76	94
+08-11-2023 14:10	1699448345	08-11-2023 13:59:05	76	94
+08-11-2023 14:11	1699448345	08-11-2023 13:59:05	76	94
+08-11-2023 14:12	1699448345	08-11-2023 13:59:05	76	94
+08-11-2023 14:18	1699449276	08-11-2023 14:14:36	69	73
+08-11-2023 14:19	1699449276	08-11-2023 14:14:36	69	73
+08-11-2023 14:21	1699449276	08-11-2023 14:14:36	69	73
+08-11-2023 14:22	1699449276	08-11-2023 14:14:36	69	69
+08-11-2023 14:23	1699449276	08-11-2023 14:14:36	69	69
+08-11-2023 14:24	1699449276	08-11-2023 14:14:36	69	69
+08-11-2023 14:27	1699449276	08-11-2023 14:14:36	69	69
+08-11-2023 14:29	1699450178	08-11-2023 14:29:38	55	62
+08-11-2023 14:30	1699450178	08-11-2023 14:29:38	55	62
+08-11-2023 14:31	1699450178	08-11-2023 14:29:38	55	62
+08-11-2023 14:38	1699450178	08-11-2023 14:29:38	55	62
+08-11-2023 14:41	1699450178	08-11-2023 14:29:38	55	62
+08-11-2023 14:43	1699451050	08-11-2023 14:44:10	45	45
+08-11-2023 14:44	1699451080	08-11-2023 14:44:40	36	45
+08-11-2023 14:49	1699451080	08-11-2023 14:44:40	36	45
+08-11-2023 14:51	1699451080	08-11-2023 14:44:40	36	45
+08-11-2023 14:54	1699451080	08-11-2023 14:44:40	36	45
+08-11-2023 14:55	1699451080	08-11-2023 14:44:40	36	45
+08-11-2023 14:56	1699451080	08-11-2023 14:44:40	36	45
+08-11-2023 14:57	1699451080	08-11-2023 14:44:40	36	45
+08-11-2023 14:58	1699451952	08-11-2023 14:59:12	41	41
+08-11-2023 15:02	1699451982	08-11-2023 14:59:42	47	47
+08-11-2023 15:03	1699451982	08-11-2023 14:59:42	47	47
+08-11-2023 15:04	1699451982	08-11-2023 14:59:42	47	47
+08-11-2023 15:06	1699451982	08-11-2023 14:59:42	47	47
+08-11-2023 15:07	1699451982	08-11-2023 14:59:42	47	47
+08-11-2023 15:11	1699451982	08-11-2023 14:59:42	47	47
+08-11-2023 15:13	1699451982	08-11-2023 14:59:42	47	47
+08-11-2023 15:18	1699452884	08-11-2023 15:14:44	47	47
+08-11-2023 15:22	1699452884	08-11-2023 15:14:44	47	47
+08-11-2023 15:23	1699452884	08-11-2023 15:14:44	47	47
+08-11-2023 15:24	1699452884	08-11-2023 15:14:44	47	47
+08-11-2023 15:27	1699452884	08-11-2023 15:14:44	47	47
+08-11-2023 15:28	1699452884	08-11-2023 15:14:44	47	47
+08-11-2023 15:30	1699453786	08-11-2023 15:29:46	30	39
+08-11-2023 15:31	1699453786	08-11-2023 15:29:46	30	39
+08-11-2023 15:32	1699453786	08-11-2023 15:29:46	30	39
+08-11-2023 15:33	1699453786	08-11-2023 15:29:46	30	39
+08-11-2023 15:34	1699453786	08-11-2023 15:29:46	30	39
+08-11-2023 15:35	1699453786	08-11-2023 15:29:46	30	39
+08-11-2023 15:36	1699453786	08-11-2023 15:29:46	30	39
+08-11-2023 15:37	1699453786	08-11-2023 15:29:46	30	39
+08-11-2023 15:38	1699453786	08-11-2023 15:29:46	30	39
+08-11-2023 15:39	1699453786	08-11-2023 15:29:46	30	39
+08-11-2023 15:40	1699453786	08-11-2023 15:29:46	30	39
+08-11-2023 15:41	1699453786	08-11-2023 15:29:46	30	39
+08-11-2023 15:42	1699453786	08-11-2023 15:29:46	30	39
+08-11-2023 15:43	1699453786	08-11-2023 15:29:46	30	39
+08-11-2023 15:46	1699454688	08-11-2023 15:44:48	17	24
+08-11-2023 15:47	1699454688	08-11-2023 15:44:48	17	24
+08-11-2023 15:48	1699454688	08-11-2023 15:44:48	17	24
+08-11-2023 15:49	1699454688	08-11-2023 15:44:48	17	24
+08-11-2023 15:53	1699454688	08-11-2023 15:44:48	17	18
+08-11-2023 15:56	1699454688	08-11-2023 15:44:48	17	18
+08-11-2023 15:57	1699454688	08-11-2023 15:44:48	17	18
+08-11-2023 15:59	1699455591	08-11-2023 15:59:51	16	17
+08-11-2023 16:00	1699455591	08-11-2023 15:59:51	16	17
+08-11-2023 16:01	1699455591	08-11-2023 15:59:51	16	17
+08-11-2023 16:02	1699455591	08-11-2023 15:59:51	16	17
+08-11-2023 16:03	1699455591	08-11-2023 15:59:51	16	17
+08-11-2023 16:06	1699455591	08-11-2023 15:59:51	16	17
+08-11-2023 16:07	1699455591	08-11-2023 15:59:51	16	17
+08-11-2023 16:09	1699455591	08-11-2023 15:59:51	16	17
+08-11-2023 16:11	1699455591	08-11-2023 15:59:51	16	17
+08-11-2023 16:12	1699455591	08-11-2023 15:59:51	16	17
+08-11-2023 16:16	1699456522	08-11-2023 16:15:22	13	14
+08-11-2023 16:19	1699456522	08-11-2023 16:15:22	13	14
+08-11-2023 16:20	1699456522	08-11-2023 16:15:22	13	14
+08-11-2023 16:21	1699456522	08-11-2023 16:15:22	13	14
+08-11-2023 16:22	1699456522	08-11-2023 16:15:22	13	14
+08-11-2023 16:23	1699456522	08-11-2023 16:15:22	13	14
+08-11-2023 16:24	1699456522	08-11-2023 16:15:22	13	14
+08-11-2023 16:25	1699456522	08-11-2023 16:15:22	13	14
+08-11-2023 16:36	1699457454	08-11-2023 16:30:54	1	0
+08-11-2023 16:37	1699457454	08-11-2023 16:30:54	1	0
+08-11-2023 16:38	1699457454	08-11-2023 16:30:54	1	0
+08-11-2023 16:44	1699457454	08-11-2023 16:30:54	1	0
+08-11-2023 16:46	1699457454	08-11-2023 16:30:54	1	0
+08-11-2023 16:49	1699457454	08-11-2023 16:30:54	1	0
+08-11-2023 16:53	1699457454	08-11-2023 16:30:54	1	0
+08-11-2023 16:54	1699457454	08-11-2023 16:30:54	1	0
+08-11-2023 16:56	1699457454	08-11-2023 16:30:54	1	0
+08-11-2023 16:59	1699457454	08-11-2023 16:30:54	1	0
+08-11-2023 17:02	0		01-01-1970 01:00:00	0	0
+08-11-2023 17:03	0		01-01-1970 01:00:00	0	0
+08-11-2023 17:04	0		01-01-1970 01:00:00	0	0
+08-11-2023 17:06	0		01-01-1970 01:00:00	0	0
+08-11-2023 17:07	0		01-01-1970 01:00:00	0	0
+08-11-2023 17:08	0		01-01-1970 01:00:00	0	0
+08-11-2023 17:09	0		01-01-1970 01:00:00	0	0
+08-11-2023 17:10	0		01-01-1970 01:00:00	0	0
 ```
