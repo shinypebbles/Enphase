@@ -21,6 +21,14 @@ CREATE TABLE  "ENPHASEPRODUCTION2"
    )
 /
 ```
+my_secrets.py
+```
+user='<user name>'
+password='<password>'
+dsn='<host name/service name'
+
+token='<token>'
+```
 ```
 import requests
 import oracledb
